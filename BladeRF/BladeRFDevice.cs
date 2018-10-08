@@ -11,8 +11,8 @@ namespace SDRSharp.BladeRF
         private const int DefaultSamplerate = 4000000;
         private const uint MinFrequency = 237500000;
         private const uint MaxFrequency = 3800000000;
-        private const int MinBandwidth = 1500000;
-        private const int MaxBandwidth = 28000000;
+        private const int MinBandwidth = 3500000;
+        private const int MaxBandwidth = 56000000;
         private const uint SampleTimeoutMs = 1000;
         private const uint NumBuffers = 32;
         
@@ -26,6 +26,7 @@ namespace SDRSharp.BladeRF
         private bool _isFpgaLoaded = false;
         private bool _RXConfigured = false;
         private string _fpga_path = Utils.GetStringSetting("BladeRFFPGA", "");
+        private int _gain = Utils.GetIntSetting("BladeRFGain", 30);
         private bladerf_lna_gain _lnaGain = (bladerf_lna_gain)Utils.GetIntSetting("BladeRFLNAGain", (int) bladerf_lna_gain.BLADERF_LNA_GAIN_MID);
         private int _vga1Gain = Utils.GetIntSetting("BladeRFRXVGA1Gain", 20);
         private int _vga2Gain = Utils.GetIntSetting("BladeRFRXVGA2Gain", 20);
@@ -41,6 +42,7 @@ namespace SDRSharp.BladeRF
         private static bladerf_version _version = NativeMethods.bladerf_version();
         private static bool _xb200_enabled = Utils.GetBooleanSetting("BladeRFXB200Enabled");
         private static bladerf_xb200_filter _xb200_filter = (bladerf_xb200_filter) (Utils.GetIntSetting("BladeRFXB200Filter", 0) - 1);
+        private int _agc;
 
         private static readonly unsafe float* _lutPtr;
         private static readonly UnsafeBuffer _lutBuffer = UnsafeBuffer.Create(4096, sizeof(float));
@@ -146,6 +148,20 @@ namespace SDRSharp.BladeRF
             }
         }
 
+        public int Gain
+        {
+            get
+            {
+                return _gain;
+            }
+            set
+            {
+                _gain = value;
+                if (_dev != IntPtr.Zero)
+                    NativeMethods.bladerf_set_gain(_dev, bladerf_module.BLADERF_MODULE_RX, _gain);
+            }
+        }
+
         public uint LNAGain
         {
             get
@@ -244,6 +260,18 @@ namespace SDRSharp.BladeRF
         {
             if (SampleRateChanged != null)
                 SampleRateChanged(this, EventArgs.Empty);
+        }
+
+        public int AGC
+        {
+            get
+            {
+                return _agc;
+            }
+            set
+            {
+                _agc = value;
+            }
         }
 
         public int Bandwidth
@@ -534,39 +562,46 @@ namespace SDRSharp.BladeRF
                 if ((error = NativeMethods.bladerf_set_bandwidth(_dev, bladerf_module.BLADERF_MODULE_RX, (uint) _bandwidth, out tmp)) != 0)
                     throw new ApplicationException(String.Format("bladerf_set_bandwidth() error. {0}", NativeMethods.bladerf_strerror(error)));
             }
-            if ((error = NativeMethods.bladerf_set_loopback(_dev, bladerf_loopback.BLADERF_LB_NONE)) != 0)
-                throw new ApplicationException(String.Format("bladerf_set_loopback() error. {0}", NativeMethods.bladerf_strerror(error)));
-            if ((error = NativeMethods.bladerf_set_sampling(_dev, _sampling)) != 0)
-                throw new ApplicationException(String.Format("bladerf_sampling() error. {0}", NativeMethods.bladerf_strerror(error)));
-            if ((error = NativeMethods.bladerf_set_lpf_mode(_dev, bladerf_module.BLADERF_MODULE_RX, bladerf_lpf_mode.BLADERF_LPF_NORMAL)) != 0)
-                throw new ApplicationException(String.Format("bladerf_set_lpf_mode() error. {0}", NativeMethods.bladerf_strerror(error)));
-            if ((error = NativeMethods.bladerf_set_lna_gain(_dev, _lnaGain)) != 0)
-                throw new ApplicationException(String.Format("bladerf_set_lna_gain() error. {0}", NativeMethods.bladerf_strerror(error)));
-            if ((error = NativeMethods.bladerf_set_rxvga1(_dev, _vga1Gain)) != 0)
-                throw new ApplicationException(String.Format("bladerf_set_rxvga1() error. {0}", NativeMethods.bladerf_strerror(error)));
-            if ((error = NativeMethods.bladerf_set_rxvga2(_dev, _vga2Gain)) != 0)
-                throw new ApplicationException(String.Format("bladerf_set_rxvga2() error. {0}", NativeMethods.bladerf_strerror(error)));
-            if (_xb200_enabled)
-            {
-                if ((error = NativeMethods.bladerf_xb200_attach(_dev)) != 0)
-                    throw new ApplicationException(String.Format("bladerf_xb200_attach() error. {0}", NativeMethods.bladerf_strerror(error)));
-                if (_xb200_filter == bladerf_xb200_filter.BLADERF_XB200_AUTO)
+
+            bladerf_fpga_size fp_size;
+            if ((error = NativeMethods.bladerf_get_fpga_size(_dev, out fp_size)) != 0)
+                throw new ApplicationException(String.Format("bladerf_get_fpga_size() error. {0}", NativeMethods.bladerf_strerror(error)));
+
+            if (fp_size == bladerf_fpga_size.BLADERF_FPGA_40KLE || fp_size == bladerf_fpga_size.BLADERF_FPGA_115KLE) {
+                if ((error = NativeMethods.bladerf_set_loopback(_dev, bladerf_loopback.BLADERF_LB_NONE)) != 0)
+                    throw new ApplicationException(String.Format("bladerf_set_loopback() error. {0}", NativeMethods.bladerf_strerror(error)));
+                if ((error = NativeMethods.bladerf_set_sampling(_dev, _sampling)) != 0)
+                    throw new ApplicationException(String.Format("bladerf_sampling() error. {0}", NativeMethods.bladerf_strerror(error)));
+
+                if ((error = NativeMethods.bladerf_set_lpf_mode(_dev, bladerf_module.BLADERF_MODULE_RX, bladerf_lpf_mode.BLADERF_LPF_NORMAL)) != 0)
+                    throw new ApplicationException(String.Format("bladerf_set_lpf_mode() error. {0}", NativeMethods.bladerf_strerror(error)));
+
+                if (_xb200_enabled)
                 {
-                    XB200AdjustFilterBank();
-                }
-                else
-                {
-                    if ((error = NativeMethods.bladerf_xb200_set_filterbank(_dev, bladerf_module.BLADERF_MODULE_RX, _xb200_filter)) != 0)
+                    if ((error = NativeMethods.bladerf_xb200_attach(_dev)) != 0)
+                        throw new ApplicationException(String.Format("bladerf_xb200_attach() error. {0}", NativeMethods.bladerf_strerror(error)));
+                    if (_xb200_filter == bladerf_xb200_filter.BLADERF_XB200_AUTO)
                     {
-                        if (_xb200_filter == bladerf_xb200_filter.BLADERF_XB200_AUTO_1DB || _xb200_filter == bladerf_xb200_filter.BLADERF_XB200_AUTO_3DB)
-                            XB200AdjustFilterBank();
-                        else
-                            throw new ApplicationException(String.Format("bladerf_xb200_set_filterbank() error. {0}", NativeMethods.bladerf_strerror(error)));
+                        XB200AdjustFilterBank();
+                    }
+                    else
+                    {
+                        if ((error = NativeMethods.bladerf_xb200_set_filterbank(_dev, bladerf_module.BLADERF_MODULE_RX, _xb200_filter)) != 0)
+                        {
+                            if (_xb200_filter == bladerf_xb200_filter.BLADERF_XB200_AUTO_1DB || _xb200_filter == bladerf_xb200_filter.BLADERF_XB200_AUTO_3DB)
+                                XB200AdjustFilterBank();
+                            else
+                                throw new ApplicationException(String.Format("bladerf_xb200_set_filterbank() error. {0}", NativeMethods.bladerf_strerror(error)));
+                        }
                     }
                 }
             }
-            if ((error = NativeMethods.bladerf_set_frequency(_dev, bladerf_module.BLADERF_MODULE_RX, (uint)_centerFrequency)) != 0)
-                throw new ApplicationException(String.Format("bladerf_set_frequency() error. {0}", NativeMethods.bladerf_strerror(error)));
+
+            if ((error = NativeMethods.bladerf_set_gain(_dev, bladerf_module.BLADERF_MODULE_RX, 30)) != 0)
+                throw new ApplicationException(String.Format("bladerf_set_gain() error. {0}", NativeMethods.bladerf_strerror(error)));
+
+            if ((error = NativeMethods.bladerf_set_frequency(_dev, bladerf_module.BLADERF_MODULE_RX, (UInt64)_centerFrequency)) != 0)
+                throw new ApplicationException(String.Format("bladerf_set_frequency() error. {0} {1}", NativeMethods.bladerf_strerror(error), (uint)_centerFrequency));
             if (_version.major == 0 && _version.minor < 14)
             {
                 throw new ApplicationException(String.Format("libbladerf is too old. Got {0} and expecting at least v0.14", _version.describe));

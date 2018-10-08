@@ -115,6 +115,15 @@ namespace SDRSharp.BladeRF
         BLADERF_SAMPLING_EXTERNAL = 2  /**< Sample from J60 or J61 */
     }
 
+    public enum bladerf_fpga_size
+    {
+        BLADERF_FPGA_UNKNOWN = 0,   /**< Unable to determine FPGA variant */
+        BLADERF_FPGA_40KLE = 40,    /**< 40 kLE FPGA */
+        BLADERF_FPGA_115KLE = 115,  /**< 115 kLE FPGA */
+        BLADERF_FPGA_A4 = 49,       /**< 49 kLE FPGA (A4) */
+        BLADERF_FPGA_A9 = 301       /**< 301 kLE FPGA (A9) */
+    }
+
     public enum bladerf_lna_gain
     {
         BLADERF_LNA_GAIN_UNKNOWN = 0,    /**< Invalid LNA gain */
@@ -309,7 +318,7 @@ namespace SDRSharp.BladeRF
         BLADERF_XB_GPIO_29 = 0x10000000,
         BLADERF_XB_GPIO_30 = 0x20000000,
         BLADERF_XB_GPIO_31 = 0x40000000,
-        BLADERF_XB_GPIO_32 = 0x80000000,
+        BLADERF_XB_GPIO_32 = 0x40000000,
 
         /* XB-200 GPIO */
         BLADERF_XB200_PIN_J7_1 = BLADERF_XB_GPIO_10,
@@ -592,10 +601,16 @@ namespace SDRSharp.BladeRF
         public static extern int bladerf_select_band(IntPtr dev, bladerf_module module, uint frequency);
 
         [DllImport("bladeRF", CallingConvention = CallingConvention.Cdecl)]
-        public static extern int bladerf_set_frequency(IntPtr dev, bladerf_module module, uint frequency);
+        public static extern int bladerf_set_gain(IntPtr dev, bladerf_module module, int gain);
+
+        [DllImport("bladeRF", CallingConvention = CallingConvention.Cdecl)]
+        public static extern int bladerf_set_frequency(IntPtr dev, bladerf_module module, ulong frequency);
 
         [DllImport("bladeRF", CallingConvention = CallingConvention.Cdecl)]
         public static extern int bladerf_get_frequency(IntPtr dev, bladerf_module module, out uint frequency);
+
+        [DllImport("bladeRF", CallingConvention = CallingConvention.Cdecl)]
+        public static extern int bladerf_get_fpga_size(IntPtr dev, out bladerf_fpga_size size);
 
         [DllImport("bladeRF", CallingConvention = CallingConvention.Cdecl)]
         public static unsafe extern int bladerf_get_quick_tune(IntPtr dev, bladerf_module module, out bladerf_quick_tune quick_tune);

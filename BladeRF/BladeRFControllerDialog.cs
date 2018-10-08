@@ -19,6 +19,7 @@ namespace SDRSharp.BladeRF
             InitSampleRates();
             InitBandwidths();
             InitXB200Filters();
+            InitGainSettings();
             var devices = DeviceDisplay.GetActiveDevices();
             deviceComboBox.Items.Clear();
             if (devices != null)
@@ -26,20 +27,22 @@ namespace SDRSharp.BladeRF
 
             samplerateComboBox.SelectedIndex = Utils.GetIntSetting("BladeRFSampleRate", 3);
             samplingModeComboBox.SelectedIndex = Utils.GetIntSetting("BladeRFSamplingMode", (int) bladerf_sampling.BLADERF_SAMPLING_INTERNAL);
-            rxVga1GainTrackBar.Value = Utils.GetIntSetting("BladeRFVGA1Gain", 20);
-            rxVga2GainTrackBar.Value = Utils.GetIntSetting("BladeRFVGA2Gain", 20);
-            lnaGainTrackBar.Value = Utils.GetIntSetting("BladeRFLNAGain", (int) bladerf_lna_gain.BLADERF_LNA_GAIN_MID);
+            //rxVga1GainTrackBar.Value = Utils.GetIntSetting("BladeRFVGA1Gain", 20);
+            gainTrackBar.Value = Utils.GetIntSetting("BladeRFVGA2Gain", 20);
+            //lnaGainTrackBar.Value = Utils.GetIntSetting("BladeRFLNAGain", (int) bladerf_lna_gain.BLADERF_LNA_GAIN_MID);
             fpgaTextBox.Text = Utils.GetStringSetting("BladeRFFPGA", "");
             bandwidthComboBox.SelectedIndex = Utils.GetIntSetting("BladeRFBandwidth", 0);
+
+            agcMode.SelectedIndex = Utils.GetIntSetting("BladeRFAGC", 0);
 
             xb200Checkbox.Checked = Utils.GetBooleanSetting("BladeRFXB200Enabled");
             xb200FilterCombobox.SelectedIndex = Utils.GetIntSetting("BladeRFXB200Filter", 0);
 
             labelVersion.Text = "libbladerf " + NativeMethods.bladerf_version().describe;
 
-            rxVga1gainLabel.Text = rxVga1GainTrackBar.Value + " dB";
-            rxVga2gainLabel.Text = rxVga2GainTrackBar.Value + " dB";
-            lnaGainLabel.Text = String.Format("{0} dB", 3 * (lnaGainTrackBar.Value - 1)); ;
+            //rxVga1gainLabel.Text = rxVga1GainTrackBar.Value + " dB";
+            gainLabel.Text = gainTrackBar.Value + " dB";
+            gainLabel.Text = String.Format("{0} dB", 3 * (gainTrackBar.Value - 1)); ;
 
             _initialized = true;
         }
@@ -52,9 +55,20 @@ namespace SDRSharp.BladeRF
             }
         }
 
+        private void InitGainSettings()
+        {
+            agcMode.Items.Clear();
+            agcMode.Items.Add("Default");
+            agcMode.Items.Add("Automatic");
+            agcMode.Items.Add("Manual");
+            agcMode.Items.Add("Fast");
+            agcMode.Items.Add("Slow");
+
+        }
+
         private void InitSampleRates()
         {
-            for (int i = 40; i > 0; i--)
+            for (int i = 61; i > 0; i--)
                 samplerateComboBox.Items.Add(String.Format("{0} MSPS", i));
             for (int i = 900; i > 0; i -= 300)
                 samplerateComboBox.Items.Add(String.Format("0.{0} MSPS", i));
@@ -68,6 +82,9 @@ namespace SDRSharp.BladeRF
             bandwidthComboBox.DisplayMember = "Text";
             bandwidthComboBox.ValueMember = "Value";
             bandwidthComboBox.Items.Add(new ComboboxItem("auto", 0));
+            bandwidthComboBox.Items.Add(new ComboboxItem("61.44 MHz", 61440000));
+            for (int i = 60; i > 28; i-=2)
+                bandwidthComboBox.Items.Add(new ComboboxItem(String.Format("{0} MHz", i), i*1000000));
             bandwidthComboBox.Items.Add(new ComboboxItem("28 MHz", 28000000));
             bandwidthComboBox.Items.Add(new ComboboxItem("20 MHz", 20000000));
             bandwidthComboBox.Items.Add(new ComboboxItem("14 MHz", 14000000));
@@ -214,6 +231,8 @@ namespace SDRSharp.BladeRF
             rxVga1GainTrackBar_Scroll(null, null);
             rxVga2GainTrackBar_Scroll(null, null);
             lnaGainTrackBar_Scroll(null, null);
+            agcMode_SelectedIndexChanged(null, null);
+            gainTrackBar_Scroll(null, null);
             xb200Checkbox_CheckedChanged(null, null);
             xb200FilterCombobox_SelectedIndexChanged(null, null);
             bandwidthComboBox_SelectedIndexChanged(null, null);
@@ -225,9 +244,9 @@ namespace SDRSharp.BladeRF
             {
                 return;
             }
-            _owner.Device.VGA1Gain = rxVga1GainTrackBar.Value;
-            rxVga1gainLabel.Text = rxVga1GainTrackBar.Value + " dB";
-            Utils.SaveSetting("BladeRFVGA1Gain", rxVga1GainTrackBar.Value);
+            _owner.Device.VGA1Gain = gainTrackBar.Value;
+            gainLabel.Text = gainTrackBar.Value + " dB";
+            Utils.SaveSetting("BladeRFVGA1Gain", gainTrackBar.Value);
         }
 
         private void rxVga2GainTrackBar_Scroll(object sender, EventArgs e)
@@ -236,9 +255,9 @@ namespace SDRSharp.BladeRF
             {
                 return;
             }
-            _owner.Device.VGA2Gain = rxVga2GainTrackBar.Value;
-            rxVga2gainLabel.Text = rxVga2GainTrackBar.Value + " dB";
-            Utils.SaveSetting("BladeRFVGA2Gain", rxVga2GainTrackBar.Value);
+            _owner.Device.VGA2Gain = gainTrackBar.Value;
+            gainLabel.Text = gainTrackBar.Value + " dB";
+            Utils.SaveSetting("BladeRFVGA2Gain", gainTrackBar.Value);
         }
 
         private void lnaGainTrackBar_Scroll(object sender, EventArgs e)
@@ -247,9 +266,21 @@ namespace SDRSharp.BladeRF
             {
                 return;
             }
-            _owner.Device.LNAGain = (uint) lnaGainTrackBar.Value;
-            lnaGainLabel.Text = String.Format("{0} dB", 3 * (lnaGainTrackBar.Value - 1));
-            Utils.SaveSetting("BladeRFLNAGain", lnaGainTrackBar.Value);
+            _owner.Device.LNAGain = (uint) gainTrackBar.Value;
+            gainLabel.Text = String.Format("{0} dB", 3 * (gainTrackBar.Value - 1));
+            Utils.SaveSetting("BladeRFLNAGain", gainTrackBar.Value);
+        }
+
+        private void gainTrackBar_Scroll(object sender, EventArgs e)
+        {
+            return;
+            if (!Initialized)
+            {
+                return;
+            }
+            _owner.Device.Gain = (int)gainTrackBar.Value;
+            gainLabel.Text = String.Format("{0} dB", (gainTrackBar.Value));
+            Utils.SaveSetting("BladeRFGain", gainTrackBar.Value);
         }
 
         private void fpgaButton_Click(object sender, EventArgs e)
@@ -319,6 +350,22 @@ namespace SDRSharp.BladeRF
         {
             get;
             set;
+        }
+
+        private void agcMode_SelectedIndexChanged(object sender, EventArgs e)
+        {
+            return;
+            if (!Initialized)
+                return;
+            Utils.SaveSetting("BladeRFAGC", agcMode.SelectedIndex);
+            try
+            {
+                _owner.Device.AGC = (agcMode.SelectedItem as ComboboxItem).Value;
+            }
+            catch
+            {
+                _owner.Device.AGC = 0;
+            }
         }
     }
 

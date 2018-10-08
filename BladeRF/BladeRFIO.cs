@@ -17,6 +17,31 @@ namespace SDRSharp.BladeRF
         private SDRSharp.Radio.SamplesAvailableDelegate _callback;
         public event EventHandler SampleRateChanged;
 
+        bool ITunableSource.CanTune
+        {
+            get
+            {
+                return true;
+            }
+        }
+
+        long ITunableSource.MinimumTunableFrequency
+        {
+            get
+            {
+                return 70000000L;
+            }
+        }
+        long ITunableSource.MaximumTunableFrequency
+        {
+            get
+            {
+                return 6000000000L;
+            }
+        }
+
+
+
         public BladeRFIO()
         {
             _frequency = 405500000L;
