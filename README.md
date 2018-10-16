@@ -7,6 +7,14 @@ bladeRF driver for SDR#
 
 ### Windows
 
+#### Precompiled binaries
+
+1. Download the [official precompiled SDR# plugin binaries](https://nuand.com/downloads/bladeRF_SDRsharp.zip)
+2. Unzip to SDR# directory
+3. Launch SDR#
+
+#### Compiling from source
+
 1. Copy the Release\SDRSharp.BladeRF.dll into SDR# installation directory
 2. If required, copy all DLL files from LibBladeRF subdirectory to SDR# installation directory
 3. Add the following line in the frontendPlugins sections of FrontEnds.xml file:
